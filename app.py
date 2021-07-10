@@ -8,12 +8,16 @@ import bcrypt
 
 sys.path.append("models")
 from User import User
+from Sentences import Sentences
+from Annotation import Annotations
 
 
-@app.route("/", methods=["GET", "POST"])
+@app.route("/users", methods=["GET", "POST"])
 def newuser():
     if request.method == "POST":
+        print(request.json)
         dets = request.json
+        print(dets)
         try:
             fname = dets["firstname"]
         except:
@@ -42,7 +46,7 @@ def newuser():
         newUser = User(firstname=fname, lastname=lname, email=email, password=password)
         newUser.save()
 
-        return ({"firstname": fname, "lastname": lname, "email": email}, 500)
+        return ({"firstname": fname, "lastname": lname, "email": email}, 200)
 
     if request.method == "GET":
         for k in User.objects():
@@ -51,7 +55,7 @@ def newuser():
         return User.objects().to_json()
 
 
-@app.route("/login", methods=["GET", "POST"])
+@app.route("/users/login", methods=["GET", "POST"])
 def userlogin():
     dets = request.json
 
@@ -66,14 +70,63 @@ def userlogin():
         print("password error")
         return ("password not given", 400)
 
-    theuser = User.objects(email=email)
-    if len(theuser) == 0:
+    userlist = User.objects(email=email)
+    if len(userlist) == 0:
         resp = make_response("email does not exist", 400)
-        resp.set_cookie("logged", False)
+        resp.set_cookie("logged", "False")
         return resp
 
+    theuser = userlist[0]
     # compare bcrypt and set cookie
+    print(theuser.email)
+    # print(theuser.password)
+    # print(password)
+    ver = bcrypt.checkpw(password, theuser.password.encode("utf=8"))
+    if not (ver):
+        return ("incorrect password", 400)
+    else:
+        resp = make_response(theuser.to_json(), 200)
+        resp.set_cookie("logged", "True")
+        return resp
+
+    return "return"
+
+
+@app.route("/sentence", methods=["GET", "POST"])
+def sentencefunc():
+    dets = request.json
+    seqno = dets["seqno"]
+    sentlist = Sentences.objects(seqno=seqno)
+    print(sentlist.to_json())
+    sentence = sentlist[0]
+    print(sentence.to_json())
+    return sentlist.to_json()
+
+
+@app.route("/annotation", methods=["GET", "POST"])
+def annotatefunc():
+    if request.method == "GET":
+        return str(len(Annotations.objects()))
+
+    if request.method == "POST":
+
+        dets = request.json
+        print(dets)
+        newAnnotation = Annotations(
+            email=dets["email"],
+            sentence=dets["sentence"],
+            sentenceOffset=dets["sentenceOffset"],
+            qid=dets["qid"],
+            facts=dets["facts"],
+            factIndex=dets["factIndex"],
+            covers=dets["covers"],
+        )
+
+        newAnnotation.save()
+
+        return (newAnnotation.to_json(), 200)
 
 
 if __name__ == "__main__":
     app.run(debug=True)
+
